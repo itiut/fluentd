@@ -200,8 +200,8 @@ module Fluent
       @weight_array = weight_array
     end
 
-    # MessagePack FixArray length = 2
-    FORWARD_HEADER = [0x92].pack('C')
+    # MessagePack FixArray length = 3
+    FORWARD_HEADER = [0x93].pack('C')
 
     #FORWARD_TCP_HEARTBEAT_DATA = FORWARD_HEADER + ''.to_msgpack + [].to_msgpack
     def send_heartbeat_tcp(node)
@@ -249,6 +249,26 @@ module Fluent
 
         # writeRawBody(packed_es)
         chunk.write_to(sock)
+
+        option = {
+          'seq' => chunk.object_id
+        }
+        sock.write option.to_msgpack
+
+        recv_timeout = 2
+        if IO.select([sock], nil, nil, recv_timeout)
+          recv_bytes = 32
+          recved_data = sock.recv(recv_bytes)
+          res = MessagePack.unpack(recved_data)
+          if res['ack'] != option['seq']
+            $log.debug "seq and ack are defferent. should raise error"
+          else
+            $log.debug "seq and ack are same"
+          end
+        else
+          # IO.select returns nil on timeout
+          $log.debug "ACK timeout"
+        end
 
         node.heartbeat(false)
       ensure
