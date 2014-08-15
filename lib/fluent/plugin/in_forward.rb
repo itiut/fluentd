@@ -125,7 +125,7 @@ module Fluent
     #   2: long? time
     #   3: object record
     # }
-    def on_message(msg, chunk_size, source)
+    def on_message(msg, chunk_size, source, writer)
       if msg.nil?
         # for future TCP heartbeat_request
         return
@@ -146,6 +146,12 @@ module Fluent
         # PackedForward
         es = MessagePackEventStream.new(entries, @cached_unpacker)
         Engine.emit_stream(tag, es)
+
+        option = msg[2]
+        if option && option['seq']
+          res = { 'ack' => option['seq'] }
+          writer.call(res)
+        end
 
       elsif entries.class == Array
         # Forward
@@ -203,13 +209,19 @@ module Fluent
       def on_read(data)
         first = data[0]
         if first == '{' || first == '['
+          writer = lambda do |res|
+            write res.to_json
+          end
           m = method(:on_read_json)
           @y = Yajl::Parser.new
           @y.on_parse_complete = lambda { |obj|
-            @on_message.call(obj, @chunk_counter, @source)
+            @on_message.call(obj, @chunk_counter, @source, writer)
             @chunk_counter = 0
           }
         else
+          writer = lambda do |res|
+            write res.to_msgpack
+          end
           m = method(:on_read_msgpack)
           @u = MessagePack::Unpacker.new
         end
@@ -217,10 +229,10 @@ module Fluent
         (class << self; self; end).module_eval do
           define_method(:on_read, m)
         end
-        m.call(data)
+        m.call(data, writer)
       end
 
-      def on_read_json(data)
+      def on_read_json(data, _)
         @chunk_counter += data.bytesize
         @y << data
       rescue => e
@@ -229,10 +241,10 @@ module Fluent
         close
       end
 
-      def on_read_msgpack(data)
+      def on_read_msgpack(data, writer)
         @chunk_counter += data.bytesize
         @u.feed_each(data) do |obj|
-          @on_message.call(obj, @chunk_counter, @source)
+          @on_message.call(obj, @chunk_counter, @source, writer)
           @chunk_counter = 0
         end
       rescue => e
