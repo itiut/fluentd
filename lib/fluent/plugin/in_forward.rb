@@ -125,7 +125,7 @@ module Fluent
     #   2: long? time
     #   3: object record
     # }
-    def on_message(msg, chunk_size, source, writer)
+    def on_message(msg, chunk_size, source, &writer)
       if msg.nil?
         # for future TCP heartbeat_request
         return
@@ -147,10 +147,13 @@ module Fluent
         es = MessagePackEventStream.new(entries, @cached_unpacker)
         Engine.emit_stream(tag, es)
 
-        option = msg[2]
-        if option && option['seq']
-          res = { 'ack' => option['seq'] }
-          writer.call(res)
+        # writer block is given
+        if block_given?
+          option = msg[2]
+          if option && option['seq']
+            res = { 'ack' => option['seq'] }
+            writer.call(res)
+          end
         end
 
       elsif entries.class == Array
@@ -215,7 +218,7 @@ module Fluent
           m = method(:on_read_json)
           @y = Yajl::Parser.new
           @y.on_parse_complete = lambda { |obj|
-            @on_message.call(obj, @chunk_counter, @source, writer)
+            @on_message.call(obj, @chunk_counter, @source, &writer)
             @chunk_counter = 0
           }
         else
@@ -244,7 +247,7 @@ module Fluent
       def on_read_msgpack(data, writer)
         @chunk_counter += data.bytesize
         @u.feed_each(data) do |obj|
-          @on_message.call(obj, @chunk_counter, @source, writer)
+          @on_message.call(obj, @chunk_counter, @source, &writer)
           @chunk_counter = 0
         end
       rescue => e
