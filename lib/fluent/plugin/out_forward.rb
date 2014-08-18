@@ -259,9 +259,9 @@ module Fluent
         if @receive_response_timeout && @receive_response_timeout > 0
           recv_with_timeout(sock, @receive_response_timeout) do |res|
             if res['ack'] != option['seq']
-              $log.debug "seq and ack are defferent. should raise error"
+              @log.debug "seq and ack are defferent. should raise error" # TODO: refine message
             else
-              $log.debug "seq and ack are same"
+              @log.debug "seq and ack are same" # TODO: refine message
             end
           end
         end
@@ -285,7 +285,7 @@ module Fluent
         block.call(res)         # TODO: cannot assert response?
       else
         # IO.select returns nil on timeout
-        $log.debug "recv timeout"
+        @log.debug "recv timeout" # TODO: refine message
         # TODO: recognize the node failed
         # TODO: refine English
         # Cannot distinguish the cases where the node does not support response
