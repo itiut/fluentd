@@ -256,19 +256,12 @@ module Fluent
         }
         sock.write option.to_msgpack
 
-        recv_timeout = 2
-        if IO.select([sock], nil, nil, recv_timeout)
-          recv_bytes = 32
-          recved_data = sock.recv(recv_bytes)
-          res = MessagePack.unpack(recved_data)
-          if res['ack'] != option['seq']
-            $log.debug "seq and ack are defferent. should raise error"
-          else
-            $log.debug "seq and ack are same"
-          end
+        recv_timeout = 2        # TODO: config_param
+        res = recv_with_timeout(sock, recv_timeout)
+        if res['ack'] != option['seq']
+          $log.debug "seq and ack are defferent. should raise error"
         else
-          # IO.select returns nil on timeout
-          $log.debug "ACK timeout"
+          $log.debug "seq and ack are same"
         end
 
         node.heartbeat(false)
@@ -280,6 +273,17 @@ module Fluent
     def connect(node)
       # TODO unix socket?
       TCPSocket.new(node.resolved_host, node.port)
+    end
+
+    def recv_with_timeout(sock, timeout)
+      if IO.select([sock], nil, nil, timeout)
+        recved_data = sock.recv(1024)
+        res = MessagePack.unpack(recved_data)
+        return res
+      else
+        # IO.select returns nil on timeout
+        $log.debug "recv timeout"
+      end
     end
 
     class HeartbeatRequestTimer < Coolio::TimerWatcher
