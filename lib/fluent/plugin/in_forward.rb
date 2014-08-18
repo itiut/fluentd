@@ -146,15 +146,7 @@ module Fluent
         # PackedForward
         es = MessagePackEventStream.new(entries, @cached_unpacker)
         Engine.emit_stream(tag, es)
-
-        # writer block is given
-        if block_given?
-          option = msg[2]
-          if option && option['seq']
-            res = { 'ack' => option['seq'] }
-            writer.call(res)
-          end
-        end
+        option = msg[2]
 
       elsif entries.class == Array
         # Forward
@@ -167,6 +159,7 @@ module Fluent
           es.add(time, record)
         }
         Engine.emit_stream(tag, es)
+        option = msg[2]
 
       else
         # Message
@@ -175,6 +168,15 @@ module Fluent
         time = msg[1]
         time = Engine.now if time == 0
         Engine.emit(tag, time, record)
+        option = msg[3]
+      end
+
+      # writer block is given
+      if block_given?
+        if option && option['seq']
+          res = { 'ack' => option['seq'] }
+          writer.call(res)
+        end
       end
     end
 
