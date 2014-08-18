@@ -43,6 +43,7 @@ module Fluent
     config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
     config_param :phi_threshold, :integer, :default => 16
     config_param :phi_failure_detector, :bool, :default => true
+    config_param :receive_response_timeout, :time, :default => nil # nil or 0 means do not wait for response
     attr_reader :nodes
 
     # backward compatibility
@@ -255,12 +256,14 @@ module Fluent
         }
         sock.write option.to_msgpack
 
-        recv_timeout = 2        # TODO: config_param
-        res = recv_with_timeout(sock, recv_timeout)
-        if res['ack'] != option['seq']
-          $log.debug "seq and ack are defferent. should raise error"
-        else
-          $log.debug "seq and ack are same"
+        if @receive_response_timeout && @receive_response_timeout > 0
+          recv_with_timeout(sock, @receive_response_timeout) do |res|
+            if res['ack'] != option['seq']
+              $log.debug "seq and ack are defferent. should raise error"
+            else
+              $log.debug "seq and ack are same"
+            end
+          end
         end
 
         node.heartbeat(false)
@@ -274,14 +277,20 @@ module Fluent
       TCPSocket.new(node.resolved_host, node.port)
     end
 
-    def recv_with_timeout(sock, timeout)
+    def recv_with_timeout(sock, timeout, &block)
       if IO.select([sock], nil, nil, timeout)
         recved_data = sock.recv(1024)
+        # response is serialized by MessagePack when having sent MessagePacked data
         res = MessagePack.unpack(recved_data)
-        return res
+        block.call(res)         # TODO: cannot assert response?
       else
         # IO.select returns nil on timeout
         $log.debug "recv timeout"
+        # TODO: recognize the node failed
+        # TODO: refine English
+        # Cannot distinguish the cases where the node does not support response
+        # and where the node does support response but response does not arrived for some reasons
+        # so recognize the node failed
       end
     end
 
