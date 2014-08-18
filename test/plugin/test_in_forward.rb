@@ -272,7 +272,7 @@ class ForwardInputTest < Test::Unit::TestCase
       }
       op = { 'seq' => entries.object_id }
       expected_acks << op['seq']
-      send_data ["tag1", entries].to_msgpack, true
+      send_data ["tag1", entries, op].to_msgpack, true
     end
 
     assert_equal events, d.emits
