@@ -76,11 +76,17 @@ module Fluent
       end
 
       def register_run_post_condition(proc)
-        (@run_post_conditions ||= []) << proc if proc.respond_to?(:call)
+        if proc.respond_to?(:call)
+          @run_post_conditions ||= []
+          @run_post_conditions << proc
+        end
       end
 
       def register_run_breaking_condition(proc)
-        (@run_breaking_conditions ||= []) << proc if proc.respond_to?(:call)
+        if proc.respond_to?(:call)
+          @run_breaking_conditions ||= []
+          @run_breaking_conditions << proc
+        end
       end
 
       def run_should_stop?
