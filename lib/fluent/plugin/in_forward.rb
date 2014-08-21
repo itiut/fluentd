@@ -58,7 +58,17 @@ module Fluent
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
+      watchers_info = @loop.watchers.map {|w| { class: w.class, enabled: w.enabled?, attached: w.attached?, id: w.object_id }}
+      @loop.watchers.each {|w|
+        begin
+          w_info = { class: w.class, enabled: w.enabled?, attached: w.attached?, id: w.object_id }
+          w.detach
+        rescue
+          require 'pry-byebug'
+          binding.pry
+          raise
+        end
+      }
       @loop.stop
       @usock.close
       unless support_blocking_timeout?
