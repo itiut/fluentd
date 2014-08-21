@@ -323,7 +323,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     assert_equal events, d.emits
-    assert_empty @responses
+    assert_equal [nil, nil], @responses
   end
 
   def test_not_respond_to_forward_not_requiring_ack
@@ -346,7 +346,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     assert_equal events, d.emits
-    assert_empty @responses
+    assert_equal [nil], @responses
   end
 
   def test_not_respond_to_packed_forward_not_requiring_ack
@@ -369,7 +369,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     assert_equal events, d.emits
-    assert_empty @responses
+    assert_equal [nil], @responses
   end
 
   def test_not_respond_to_message_json_not_requiring_ack
@@ -390,7 +390,7 @@ class ForwardInputTest < Test::Unit::TestCase
     end
 
     assert_equal events, d.emits
-    assert_empty @responses
+    assert_equal [nil, nil], @responses
   end
 
   def send_data(data, try_to_receive_response=false, response_timeout=1)
@@ -398,15 +398,21 @@ class ForwardInputTest < Test::Unit::TestCase
     begin
       io.write data
       if try_to_receive_response
-        if IO.select([io], nil, nil, response_timeout)
-          res = io.recv(1024)
-          @responses << res
+        started_at = Time.now
+        while Time.now < started_at + response_timeout
+          begin
+            res = io.recv_nonblock(1024)
+          rescue Errno::EAGAIN, Errno::EWOULDBLOCK
+            next
+          end
+          break
         end
-        # timeout means no response, so add nothing to @responses
+        # timeout means no response, so push nil to @responses
       end
     ensure
       io.close
     end
+    @responses << res if try_to_receive_response
   end
 
   # TODO heartbeat
