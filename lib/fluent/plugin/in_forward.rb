@@ -54,7 +54,8 @@ module Fluent
     end
 
     def shutdown
-      @loop.watchers.each {|w| w.detach }
+      # TODO: comments
+      @loop.watchers.each {|w| w.detach if w.attached? }
       @loop.stop
       @usock.close
       @thread.join
