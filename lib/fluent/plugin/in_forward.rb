@@ -58,11 +58,17 @@ module Fluent
     end
 
     def shutdown
-      watchers_info = @loop.watchers.map {|w| { class: w.class, enabled: w.enabled?, attached: w.attached?, id: w.object_id }}
+      watcher_to_info = lambda {|w| { class: w.class, enabled: w.enabled?, attached: w.attached?, id: w.object_id }}
+      watchers_info = []
+      watchers_info << @loop.watchers.map {|w| watcher_to_info.call(w) }
+      w_info_before = []
+      w_info_after = []
       @loop.watchers.each {|w|
         begin
-          w_info = { class: w.class, enabled: w.enabled?, attached: w.attached?, id: w.object_id }
+          watchers_info << @loop.watchers.map {|ww| watcher_to_info.call(ww) }
+          w_info_before << watcher_to_info.call(w)
           w.detach
+          w_info_after << watcher_to_info.call(w)
         rescue
           require 'pry-byebug'
           binding.pry
