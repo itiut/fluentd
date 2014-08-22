@@ -257,13 +257,27 @@ module Fluent
         sock.write option.to_msgpack
 
         if @receive_response_timeout && @receive_response_timeout > 0
-          recv_with_timeout(sock, @receive_response_timeout) do |res|
+          if IO.select([sock], nil, nil, @receive_response_timeout)
+            raw_data = sock.recv(1024)
+            # response is serialized by MessagePack when having sent MessagePacked data
+            res = MessagePack.unpack(raw_data)
+
             if res['ack'] != option['seq']
-              node.disable!
               @log.debug "seq and ack are defferent. should raise error" # TODO: refine message
+              # TODO: raise error
             else
               @log.debug "seq and ack are same" # TODO: refine message
             end
+
+          else
+            # IO.select returns nil on timeout
+            @log.debug "recv timeout. disable node and should raise error" # TODO: refine message
+            node.disable!
+            # TODO raise error
+            # TODO: refine English
+            # Cannot distinguish the cases where the node does not support response
+            # and where the node does support response but response does not arrived for some reasons
+            # so recognize the node failed
           end
         end
 
@@ -276,23 +290,6 @@ module Fluent
     def connect(node)
       # TODO unix socket?
       TCPSocket.new(node.resolved_host, node.port)
-    end
-
-    def recv_with_timeout(sock, timeout, &block)
-      if IO.select([sock], nil, nil, timeout)
-        recved_data = sock.recv(1024)
-        # response is serialized by MessagePack when having sent MessagePacked data
-        res = MessagePack.unpack(recved_data)
-        block.call(res)         # TODO: cannot assert response?
-      else
-        # IO.select returns nil on timeout
-        @log.debug "recv timeout" # TODO: refine message
-        # TODO: recognize the node failed
-        # TODO: refine English
-        # Cannot distinguish the cases where the node does not support response
-        # and where the node does support response but response does not arrived for some reasons
-        # so recognize the node failed
-      end
     end
 
     class HeartbeatRequestTimer < Coolio::TimerWatcher
