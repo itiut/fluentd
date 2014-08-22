@@ -238,6 +238,7 @@ module Fluent
         if option && option['seq']
           res = { 'ack' => option['seq'] }
           write @serializer.call(res)
+          @log.trace { "sent response to fluent socket object_id=#{self.object_id}" }
         end
       end
 
