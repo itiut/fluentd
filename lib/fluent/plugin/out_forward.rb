@@ -259,6 +259,7 @@ module Fluent
         if @receive_response_timeout && @receive_response_timeout > 0
           recv_with_timeout(sock, @receive_response_timeout) do |res|
             if res['ack'] != option['seq']
+              node.disable!
               @log.debug "seq and ack are defferent. should raise error" # TODO: refine message
             else
               @log.debug "seq and ack are same" # TODO: refine message
@@ -385,6 +386,10 @@ module Fluent
 
       def available?
         @available
+      end
+
+      def disable!
+        @available = false
       end
 
       def standby?
