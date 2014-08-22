@@ -271,8 +271,6 @@ module Fluent
             if res['ack'] != option['seq']
               @log.error "seq and ack are defferent. should raise error" # TODO: refine message
               raise ForwardOutputResponseError, "seq and ack are different" # TODO: refine message
-            else
-              @log.debug "seq and ack are same" # TODO: remove this
             end
 
           else
@@ -282,6 +280,7 @@ module Fluent
             # and where the node does support response but response does not arrived for some reasons
             # so recognize the node failed
             @log.warn "recv timeout. recognize the node as failed" # TODO: refine message
+            # this log may be lost
             node.disable!
           end
         end
