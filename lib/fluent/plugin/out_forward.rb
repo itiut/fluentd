@@ -15,6 +15,12 @@
 #
 
 module Fluent
+  class ForwardOutputError < StandardError
+  end
+
+  class ForwardOutputResponseError < ForwardOutputError
+  end
+
   class ForwardOutput < ObjectBufferedOutput
     Plugin.register_output('forward', self)
 
@@ -263,21 +269,20 @@ module Fluent
             res = MessagePack.unpack(raw_data)
 
             if res['ack'] != option['seq']
-              @log.debug "seq and ack are defferent. should raise error" # TODO: refine message
-              # TODO: raise error
+              @log.error "seq and ack are defferent. should raise error" # TODO: refine message
+              raise ForwardOutputResponseError, "seq and ack are different" # TODO: refine message
             else
-              @log.debug "seq and ack are same" # TODO: refine message
+              @log.debug "seq and ack are same" # TODO: remove this
             end
 
           else
-            # IO.select returns nil on timeout
-            @log.debug "recv timeout. disable node and should raise error" # TODO: refine message
-            node.disable!
-            # TODO raise error
+            # IO.select returns nil on timeout.
             # TODO: refine English
             # Cannot distinguish the cases where the node does not support response
             # and where the node does support response but response does not arrived for some reasons
             # so recognize the node failed
+            @log.warn "recv timeout. recognize the node as failed" # TODO: refine message
+            node.disable!
           end
         end
 
