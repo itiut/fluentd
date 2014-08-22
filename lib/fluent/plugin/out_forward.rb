@@ -275,12 +275,16 @@ module Fluent
 
           else
             # IO.select returns nil on timeout.
-            # TODO: refine English
-            # Cannot distinguish the cases where the node does not support response
-            # and where the node does support response but response does not arrived for some reasons
-            # so recognize the node failed
-            @log.warn "recv timeout. recognize the node as failed" # TODO: refine message
-            # this log may be lost
+            # There are 2 types of cases when no response has been received:
+            # (1) the node does not support sending responses
+            # (2) the node does support sending response but responses have not arrived for some reasons.
+            # It is impossible to distinguish (1) from (2). So, for compatibility
+            # the chunk should not be resent just because no response has arrived,
+            # because the same chunk is resent forever in the case (1).
+            # Instead of resend the chunk,
+            # But considering the case (2), regard the node as unavailable and disable it anyway,
+            # unwillingly accepting that the chunk may be lost.
+            @log.warn "no response from #{n.host}:#{n.port}. regard it as unavailable."
             node.disable!
           end
         end
