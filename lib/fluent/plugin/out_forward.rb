@@ -265,7 +265,7 @@ module Fluent
         if @wait_response_timeout && @wait_response_timeout > 0
           if IO.select([sock], nil, nil, @wait_response_timeout)
             raw_data = sock.recv(1024)
-            # response is serialized by MessagePack when having sent MessagePacked data
+            # Serialization type of the response is same as sent data.
             res = MessagePack.unpack(raw_data)
 
             if res['ack'] != option['seq']
