@@ -108,7 +108,7 @@ module Fluent
     #   2: long? time
     #   3: object record
     # }
-    def on_message(msg, chunk_size, source, &writer)
+    def on_message(msg, chunk_size, source)
       if msg.nil?
         # for future TCP heartbeat_request
         return
@@ -154,13 +154,8 @@ module Fluent
         option = msg[3]
       end
 
-      # writer block is given
-      if block_given?
-        if option && option['seq']
-          res = { 'ack' => option['seq'] }
-          writer.call(res)
-        end
-      end
+      # return option for response
+      option
     end
 
     class Handler < Coolio::Socket
@@ -197,30 +192,33 @@ module Fluent
       def on_read(data)
         first = data[0]
         if first == '{' || first == '['
-          writer = lambda do |res|
-            write res.to_json
-          end
           m = method(:on_read_json)
+          serializer = :to_json.to_proc
           @y = Yajl::Parser.new
           @y.on_parse_complete = lambda { |obj|
-            @on_message.call(obj, @chunk_counter, @source, &writer)
+            option = @on_message.call(obj, @chunk_counter, @source)
+            respond option if option
             @chunk_counter = 0
           }
         else
-          writer = lambda do |res|
-            write res.to_msgpack
-          end
           m = method(:on_read_msgpack)
+          serializer = :to_msgpack.to_proc
           @u = MessagePack::Unpacker.new
         end
 
         (class << self; self; end).module_eval do
           define_method(:on_read, m)
+          define_method(:respond) do |option|
+            if option && option['seq']
+              res = { 'ack' => option['seq'] }
+              write serializer.call(res)
+            end
+          end
         end
-        m.call(data, writer)
+        m.call(data)
       end
 
-      def on_read_json(data, _)
+      def on_read_json(data)
         @chunk_counter += data.bytesize
         @y << data
       rescue => e
@@ -229,10 +227,11 @@ module Fluent
         close
       end
 
-      def on_read_msgpack(data, writer)
+      def on_read_msgpack(data)
         @chunk_counter += data.bytesize
         @u.feed_each(data) do |obj|
-          @on_message.call(obj, @chunk_counter, @source, &writer)
+          option = @on_message.call(obj, @chunk_counter, @source)
+          respond option if option
           @chunk_counter = 0
         end
       rescue => e
