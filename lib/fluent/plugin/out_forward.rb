@@ -49,7 +49,7 @@ module Fluent
     config_param :expire_dns_cache, :time, :default => nil  # 0 means disable cache
     config_param :phi_threshold, :integer, :default => 16
     config_param :phi_failure_detector, :bool, :default => true
-    config_param :receive_response_timeout, :time, :default => nil # nil or 0 means do not wait for response
+    config_param :wait_response_timeout, :time, :default => nil  # nil or 0 means do not wait for response
     attr_reader :nodes
 
     # backward compatibility
@@ -262,8 +262,8 @@ module Fluent
         }
         sock.write option.to_msgpack
 
-        if @receive_response_timeout && @receive_response_timeout > 0
-          if IO.select([sock], nil, nil, @receive_response_timeout)
+        if @wait_response_timeout && @wait_response_timeout > 0
+          if IO.select([sock], nil, nil, @wait_response_timeout)
             raw_data = sock.recv(1024)
             # response is serialized by MessagePack when having sent MessagePacked data
             res = MessagePack.unpack(raw_data)
