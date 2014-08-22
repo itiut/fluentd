@@ -193,7 +193,7 @@ module Fluent
         first = data[0]
         if first == '{' || first == '['
           m = method(:on_read_json)
-          serializer = :to_json.to_proc
+          @serializer = :to_json.to_proc
           @y = Yajl::Parser.new
           @y.on_parse_complete = lambda { |obj|
             option = @on_message.call(obj, @chunk_counter, @source)
@@ -202,18 +202,12 @@ module Fluent
           }
         else
           m = method(:on_read_msgpack)
-          serializer = :to_msgpack.to_proc
+          @serializer = :to_msgpack.to_proc
           @u = MessagePack::Unpacker.new
         end
 
         (class << self; self; end).module_eval do
           define_method(:on_read, m)
-          define_method(:respond) do |option|
-            if option && option['seq']
-              res = { 'ack' => option['seq'] }
-              write serializer.call(res)
-            end
-          end
         end
         m.call(data)
       end
@@ -238,6 +232,13 @@ module Fluent
         @log.error "forward error", :error => e, :error_class => e.class
         @log.error_backtrace
         close
+      end
+
+      def respond(option)
+        if option && option['seq']
+          res = { 'ack' => option['seq'] }
+          write @serializer.call(res)
+        end
       end
 
       def on_close
