@@ -269,8 +269,8 @@ module Fluent
             res = MessagePack.unpack(raw_data)
 
             if res['ack'] != option['seq']
-              @log.error "seq and ack are defferent. should raise error" # TODO: refine message
-              raise ForwardOutputResponseError, "seq and ack are different" # TODO: refine message
+              # Some errors may have occured when ack and seq are different, so resend the chunk.
+              raise ForwardOutputResponseError, "ack in response and seq in sent data are different"
             end
 
           else
