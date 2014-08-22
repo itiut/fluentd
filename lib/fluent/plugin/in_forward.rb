@@ -104,17 +104,20 @@ module Fluent
     # message Forward {
     #   1: string tag
     #   2: list<Entry> entries
+    #   3: object option (optional)
     # }
     #
     # message PackedForward {
     #   1: string tag
     #   2: raw entries  # msgpack stream of Entry
+    #   3: object option (optional)
     # }
     #
     # message Message {
     #   1: string tag
     #   2: long? time
     #   3: object record
+    #   4: object option (optional)
     # }
     def on_message(msg, chunk_size, source)
       if msg.nil?
