@@ -398,14 +398,8 @@ class ForwardInputTest < Test::Unit::TestCase
     begin
       io.write data
       if try_to_receive_response
-        started_at = Time.now
-        while Time.now < started_at + response_timeout
-          begin
-            res = io.recv_nonblock(1024)
-          rescue Errno::EAGAIN, Errno::EWOULDBLOCK
-            next
-          end
-          break
+        if IO.select([io], nil, nil, response_timeout)
+          res = io.recv(1024)
         end
         # timeout means no response, so push nil to @responses
       end
