@@ -263,6 +263,9 @@ module Fluent
         sock.write option.to_msgpack
 
         if @wait_response_timeout && @wait_response_timeout > 0
+          # Waiting for a response here results in a decrease of throughput because a chunk queue is locked.
+          # To avoid a decrease of troughput, it is necessary to prepare a list of chunks that wait for responses
+          # and process them asynchronously.
           if IO.select([sock], nil, nil, @wait_response_timeout)
             raw_data = sock.recv(1024)
             # Serialization type of the response is same as sent data.
