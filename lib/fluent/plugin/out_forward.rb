@@ -272,7 +272,7 @@ module Fluent
             res = MessagePack.unpack(raw_data)
 
             if res['ack'] != option['seq']
-              # Some errors may have occured when ack and seq are different, so resend the chunk.
+              # Some errors may have occured when ack and seq are different, so send the chunk again.
               raise ForwardOutputResponseError, "ack in response and seq in sent data are different"
             end
 
@@ -282,9 +282,9 @@ module Fluent
             # (1) the node does not support sending responses
             # (2) the node does support sending response but responses have not arrived for some reasons.
             # It is impossible to distinguish (1) from (2). So, for compatibility
-            # the chunk should not be resent just because no response has arrived,
-            # because the same chunk is resent forever in the case (1).
-            # Instead of resend the chunk,
+            # the chunk should not be sent again just because no response has arrived,
+            # because the same chunk will be sent indefinitely in the case (1).
+            # Instead of send the chunk again,
             # But considering the case (2), regard the node as unavailable and disable it anyway,
             # unwillingly accepting that the chunk may be lost.
             @log.warn "no response from #{n.host}:#{n.port}. regard it as unavailable."
