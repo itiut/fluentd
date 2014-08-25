@@ -284,7 +284,6 @@ module Fluent
             # It is impossible to distinguish (1) from (2). So, for compatibility
             # the chunk should not be sent again just because no response has arrived,
             # because the same chunk will be sent indefinitely in the case (1).
-            # Instead of send the chunk again,
             # But considering the case (2), regard the node as unavailable and disable it anyway,
             # unwillingly accepting that the chunk may be lost.
             @log.warn "no response from #{n.host}:#{n.port}. regard it as unavailable."
