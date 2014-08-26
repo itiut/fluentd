@@ -80,7 +80,38 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 2, d.instance.wait_response_timeout
   end
 
-  def test_send_data
+  def test_send_to_a_node_supporting_responses
+    target_input_driver = create_target_input_driver(true)
+
+    d = create_driver(CONFIG + %[flush_interval 1s])
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.expected_emits_length = records.length
+    # TODO: set when d.run ends
+
+    target_input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
+      end
+    end
+
+    emits = target_input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+
+    assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
+    assert_empty d.instance.exceptions
+    # TODO: check target_input_driver's log
+  end
+
+  def test_send_to_a_node_not_supporting_responses
     target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[flush_interval 1s])
@@ -106,11 +137,12 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
 
-    assert_equal [nil], d.instance.responses
+    assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
+    # TODO: check target_input_driver's log
   end
 
-  def test_send_data_with_option
+  def test_send_with_opiton_to_a_node_supporting_responses
     target_input_driver = create_target_input_driver(true)
 
     d = create_driver(CONFIG + %[
@@ -142,9 +174,11 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal 1, d.instance.responses.length
     assert d.instance.responses[0].has_key?('ack') # TODO: can assert value?
     assert_empty d.instance.exceptions
+    # TODO: check target_input_driver's log
   end
+  # TODO: add test cases about responses are not correct?
 
-  def test_disable_node_on_response_timeout
+  def test_send_with_opiton_to_a_node_not_supporting_responses
     target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[
@@ -174,10 +208,11 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal ['test', time, records[1]], emits[1]
 
     node = d.instance.nodes.first
-    assert_equal false, node.available
+    assert_equal false, node.available # node is regarded as unavailable when timeout
 
-    assert_equal [nil], d.instance.responses
+    assert_equal [nil], d.instance.responses # a nil response when timeout
     assert_empty d.instance.exceptions
+    # TODO: check target_input_driver's log
   end
 
   def create_target_input_driver(do_respond=false, conf=TARGET_CONFIG)
