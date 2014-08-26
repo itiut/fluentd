@@ -274,8 +274,11 @@ class ForwardOutputTest < Test::Unit::TestCase
     class DummyEngineClass
       attr_reader :emit_streams
 
-      def emit_stream(tag, es)
+      def initialize
         @emit_streams ||= []
+      end
+
+      def emit_stream(tag, es)
         @emit_streams << [tag, es.to_a]
       end
     end
