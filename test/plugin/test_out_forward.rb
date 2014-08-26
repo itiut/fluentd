@@ -62,7 +62,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data
-    dummy_driver = DummyDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
+    input_driver = WrapperDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -75,21 +75,21 @@ class ForwardOutputTest < Test::Unit::TestCase
     d.expected_emits_length = records.length
     # TODO: set when d.run ends
 
-    dummy_driver.start
+    input_driver.start
     d.run do
       records.each do |record|
         d.emit record, time
       end
     end
-    dummy_driver.shutdown
+    input_driver.shutdown
 
-    emits = dummy_driver.emits
+    emits = input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
   end
 
 
-  class DummyDriver
+  class WrapperDriver
     def initialize(wrapper_klass, *args)
       raise ArgumentError unless wrapper_klass.is_a?(Class)
       @instance = wrapper_klass.new(*args)
