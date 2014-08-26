@@ -23,7 +23,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   ]
 
   def create_driver(conf=CONFIG)
-    Fluent::Test::OutputTestDriver.new(Fluent::ForwardOutput) do
+    Fluent::Test::OutputTestDriver.new(Fluent::ForwardOutput) {
       attr_reader :responses, :exceptions
 
       def initialize
@@ -39,7 +39,7 @@ class ForwardOutputTest < Test::Unit::TestCase
         @exceptions << e
         raise e
       end
-    end.configure(conf)
+    }.configure(conf)
   end
 
   def test_configure
