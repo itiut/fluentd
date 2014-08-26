@@ -81,7 +81,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data
-    input_driver = create_input_driver
+    target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -94,7 +94,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     d.expected_emits_length = records.length
     # TODO: set when d.run ends
 
-    input_driver.run do
+    target_input_driver.run do
       d.run do
         records.each do |record|
           d.emit record, time
@@ -102,7 +102,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       end
     end
 
-    emits = input_driver.emits
+    emits = target_input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
 
@@ -111,7 +111,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data_with_option
-    input_driver = create_input_driver(true)
+    target_input_driver = create_target_input_driver(true)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -127,7 +127,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     d.expected_emits_length = records.length
     # TODO: set when d.run ends
 
-    input_driver.run do
+    target_input_driver.run do
       d.run do
         records.each do |record|
           d.emit record, time
@@ -135,7 +135,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       end
     end
 
-    emits = input_driver.emits
+    emits = target_input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
 
@@ -145,7 +145,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_disable_node_on_response_timeout
-    input_driver = create_input_driver
+    target_input_driver = create_target_input_driver
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -161,7 +161,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     d.expected_emits_length = records.length
     # TODO: set when d.run ends
 
-    input_driver.run do
+    target_input_driver.run do
       d.run do
         records.each do |record|
           d.emit record, time
@@ -169,7 +169,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       end
     end
 
-    emits = input_driver.emits
+    emits = target_input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
 
@@ -180,7 +180,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_empty d.instance.exceptions
   end
 
-  def create_input_driver(do_respond=false, conf=TARGET_CONFIG)
+  def create_target_input_driver(do_respond=false, conf=TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
 
     DummyEngineDriver.new(Fluent::ForwardInput) {
