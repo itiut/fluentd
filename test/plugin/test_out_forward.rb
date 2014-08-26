@@ -62,7 +62,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data
-    dummy_driver = DummyInputDriver.new('127.0.0.1', 13999)
+    dummy_driver = DummyDriver.new(DummyForwardInput, '127.0.0.1', 13999)
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -89,20 +89,58 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
 
-  class DummyInputDriver
+  class DummyDriver
+    def initialize(wrapper_klass, *args)
+      raise ArgumentError unless wrapper_klass.is_a?(Class)
+      @instance = wrapper_klass.new(*args)
+      @engine = DummyEngineClass.new
+      wrapper_klass.superclass.const_set('Engine', @engine)
+    end
+
+    def start
+      @instance.start
+    end
+
+    def shutdown
+      @instance.shutdown
+    end
+
+    def emits
+      all = []
+      @engine.emit_streams.each {|tag,events|
+        events.each {|time,record|
+          all << [tag, time, record]
+        }
+      }
+      all
+    end
+
+    class DummyEngineClass
+      attr_reader :emit_streams
+
+      def initialize
+        @emit_streams = []
+      end
+
+      def emit_stream(tag, es)
+        @emit_streams << [tag, es.to_a]
+      end
+    end
+  end
+
+  require 'fluent/plugin/in_forward'
+
+  class DummyForwardInput < Fluent::ForwardInput
     def initialize(host, port)
       @host = host
       @port = port
-      @instance = DummyForwardInput.new
-      @engine = DummyEngineClass.new
-      Fluent::ForwardInput.const_set('Engine', @engine)
     end
 
     def start
       @thread = Thread.new do
         Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
           begin
-            handler = DummyForwardInput::DummyHandler.new(sock, $log, @instance.method(:on_message))
+            handler = DummyHandler.new(sock, $log, method(:on_message))
             loop do
               raw_data = sock.recv(1024)
               handler.on_read(raw_data)
@@ -120,54 +158,24 @@ class ForwardOutputTest < Test::Unit::TestCase
       @thread.join
     end
 
-    def emits
-      all = []
-      @engine.emit_streams.each {|tag,events|
-        events.each {|time,record|
-          all << [tag, time, record]
-        }
-      }
-      all
-    end
+    class DummyHandler < Handler
+      attr_reader :chunk_counter # for checking if received data is successfully unpacked
 
-    require 'fluent/plugin/in_forward'
-
-    class DummyForwardInput < Fluent::ForwardInput
-      def initialize
-        # do nothing
+      def initialize(sock, log, on_message)
+        @sock = sock
+        @log = log
+        @chunk_counter = 0
+        @on_message = on_message
       end
 
-      class DummyHandler < Handler
-        attr_reader :chunk_counter # for checking if received data is successfully unpacked
-
-        def initialize(sock, log, on_message)
-          @sock = sock
-          @log = log
-          @chunk_counter = 0
-          @on_message = on_message
-        end
-
-        def write(data)
-          @sock.write data
-        rescue => e
-          @sock.close
-        end
-
-        def close
-          @sock.close
-        end
-      end
-    end
-
-    class DummyEngineClass
-      attr_reader :emit_streams
-
-      def initialize
-        @emit_streams = []
+      def write(data)
+        @sock.write data
+      rescue => e
+        @sock.close
       end
 
-      def emit_stream(tag, es)
-        @emit_streams << [tag, es.to_a]
+      def close
+        @sock.close
       end
     end
   end
