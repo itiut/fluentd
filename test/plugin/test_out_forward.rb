@@ -27,11 +27,9 @@ class ForwardOutputTest < Test::Unit::TestCase
         @exceptions = []
       end
 
-      alias :original_send_data :send_data
-
       def send_data(node, tag, chunk)
         # Original #send_data returns nil when it does not wait for responses or when on response timeout.
-        @responses << original_send_data(node, tag, chunk)
+        @responses << super(node, tag, chunk)
       rescue => e
         @exceptions << e
         raise e
