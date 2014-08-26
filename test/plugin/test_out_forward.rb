@@ -62,7 +62,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data
-    dummy_driver = DummyDriver.new(DummyForwardInput, '127.0.0.1', 13999)
+    dummy_driver = DummyDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -130,7 +130,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   require 'fluent/plugin/in_forward'
 
-  class DummyForwardInput < Fluent::ForwardInput
+  class WrapperForwardInput < Fluent::ForwardInput
     def initialize(host, port)
       @host = host
       @port = port
@@ -140,7 +140,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       @thread = Thread.new do
         Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
           begin
-            handler = DummyHandler.new(sock, $log, method(:on_message))
+            handler = WrapperHandler.new(sock, $log, method(:on_message))
             loop do
               raw_data = sock.recv(1024)
               handler.on_read(raw_data)
@@ -158,7 +158,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       @thread.join
     end
 
-    class DummyHandler < Handler
+    class WrapperHandler < Handler
       attr_reader :chunk_counter # for checking if received data is successfully unpacked
 
       def initialize(sock, log, on_message)
