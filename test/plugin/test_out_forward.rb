@@ -73,6 +73,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       {"a" => 2}
     ]
     d.expected_emits_length = records.length
+    # TODO: set when d.run ends
 
     dummy_driver.start
     d.run do
@@ -82,7 +83,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     end
     dummy_driver.shutdown
 
-    emits = d.emits
+    emits = dummy_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
   end
@@ -93,24 +94,23 @@ class ForwardOutputTest < Test::Unit::TestCase
       @host = host
       @port = port
       @instance = DummyForwardInput.new
+      @engine = DummyEngineClass.new
+      Fluent::ForwardInput.const_set('Engine', @engine)
     end
 
     def start
       @thread = Thread.new do
-        server = TCPServer.new(@host, @port)
-        begin
-          loop do
-            # not multiplexing
-            sock = server.accept
+        Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
+          begin
             handler = DummyForwardInput::DummyHandler.new(sock, $log, @instance.method(:on_message))
             loop do
               raw_data = sock.recv(1024)
               handler.on_read(raw_data)
               break if handler.chunk_counter == 0
             end
+          ensure
+            sock.close
           end
-        ensure
-          server.close
         end
       end
     end
@@ -118,6 +118,16 @@ class ForwardOutputTest < Test::Unit::TestCase
     def shutdown
       @thread.kill
       @thread.join
+    end
+
+    def emits
+      all = []
+      @engine.emit_streams.each {|tag,events|
+        events.each {|time,record|
+          all << [tag, time, record]
+        }
+      }
+      all
     end
 
     require 'fluent/plugin/in_forward'
@@ -146,6 +156,18 @@ class ForwardOutputTest < Test::Unit::TestCase
         def close
           @sock.close
         end
+      end
+    end
+
+    class DummyEngineClass
+      attr_reader :emit_streams
+
+      def initialize
+        @emit_streams = []
+      end
+
+      def emit_stream(tag, es)
+        @emit_streams << [tag, es.to_a]
       end
     end
   end
