@@ -17,6 +17,11 @@ class ForwardOutputTest < Test::Unit::TestCase
     </server>
   ]
 
+  TARGET_CONFIG = %[
+    port #{TARGET_PORT}
+    bind #{TARGET_HOST}
+  ]
+
   def create_driver(conf=CONFIG)
     Fluent::Test::OutputTestDriver.new(Fluent::ForwardOutput) do
       attr_reader :responses, :exceptions
@@ -76,7 +81,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data
-    input_driver = create_input_driver(TARGET_HOST, TARGET_PORT)
+    input_driver = create_input_driver
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -106,7 +111,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data_with_option
-    input_driver = create_input_driver(TARGET_HOST, TARGET_PORT)
+    input_driver = create_input_driver(true)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -140,7 +145,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_disable_node_on_response_timeout
-    input_driver = create_input_driver(TARGET_HOST, TARGET_PORT, false)
+    input_driver = create_input_driver
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -175,10 +180,10 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_empty d.instance.exceptions
   end
 
-  def create_input_driver(host, port, do_respond=true)
+  def create_input_driver(do_respond=false, conf=TARGET_CONFIG)
     require 'fluent/plugin/in_forward'
 
-    WrapperDriver.new(Fluent::ForwardInput, host, port) do
+    DummyEngineDriver.new(Fluent::ForwardInput) {
       handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
         attr_reader :chunk_counter # for checking if received data is successfully unpacked
 
@@ -206,11 +211,6 @@ class ForwardOutputTest < Test::Unit::TestCase
         end
       }
 
-      def initialize(host, port)
-        @host = host
-        @port = port
-      end
-
       define_method(:start) do
         @thread = Thread.new do
           Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
@@ -233,21 +233,15 @@ class ForwardOutputTest < Test::Unit::TestCase
         @thread.kill
         @thread.join
       end
-    end
+    }.configure(conf)
   end
 
-
-  class WrapperDriver
-    def initialize(klass, *args, &block)
-      raise ArgumentError unless klass.is_a?(Class)
-      @klass = klass
-
+  class DummyEngineDriver < Fluent::Test::TestDriver
+    def initialize(klass, &block)
+      super(klass, &block)
       @engine = DummyEngineClass.new
+      @klass = klass
       @klass.const_set(:Engine, @engine) # can not run tests concurrently
-
-      wrapper_class = Class.new(@klass)
-      wrapper_class.class_eval(&block) if block
-      @instance = wrapper_class.new(*args)
     end
 
     def start
