@@ -88,6 +88,34 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal ['test', time, records[1]], emits[1]
   end
 
+  def test_send_data_with_option
+    input_driver = WrapperDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
+
+    d = create_driver(CONFIG + %[flush_interval 1s])
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.expected_emits_length = records.length
+    # TODO: set when d.run ends
+
+    input_driver.start
+    d.run do
+      records.each do |record|
+        # TODO: send option
+        d.emit record, time
+      end
+    end
+    input_driver.shutdown
+
+    emits = input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+    # TODO: test responses
+  end
 
   class WrapperDriver
     def initialize(wrapper_klass, *args)
