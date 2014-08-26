@@ -6,12 +6,14 @@ class ForwardOutputTest < Test::Unit::TestCase
     Fluent::Test.setup
   end
 
+  TARGET_HOST = '127.0.0.1'
+  TARGET_PORT = 13999
   CONFIG = %[
     send_timeout 51
     <server>
       name test
-      host 127.0.0.1
-      port 13999
+      host #{TARGET_HOST}
+      port #{TARGET_PORT}
     </server>
   ]
 
@@ -71,7 +73,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data
-    input_driver = WrapperDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
+    input_driver = WrapperDriver.new(WrapperForwardInput, TARGET_HOST, TARGET_PORT)
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -98,7 +100,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data_with_option
-    input_driver = WrapperDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
+    input_driver = WrapperDriver.new(WrapperForwardInput, TARGET_HOST, TARGET_PORT)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
