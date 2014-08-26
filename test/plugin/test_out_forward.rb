@@ -94,13 +94,13 @@ class ForwardOutputTest < Test::Unit::TestCase
     d.expected_emits_length = records.length
     # TODO: set when d.run ends
 
-    input_driver.start
-    d.run do
-      records.each do |record|
-        d.emit record, time
+    input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
       end
     end
-    input_driver.shutdown
 
     emits = input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
@@ -127,13 +127,13 @@ class ForwardOutputTest < Test::Unit::TestCase
     d.expected_emits_length = records.length
     # TODO: set when d.run ends
 
-    input_driver.start
-    d.run do
-      records.each do |record|
-        d.emit record, time
+    input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
       end
     end
-    input_driver.shutdown
 
     emits = input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
@@ -161,13 +161,13 @@ class ForwardOutputTest < Test::Unit::TestCase
     d.expected_emits_length = records.length
     # TODO: set when d.run ends
 
-    input_driver.start
-    d.run do
-      records.each do |record|
-        d.emit record, time
+    input_driver.run do
+      d.run do
+        records.each do |record|
+          d.emit record, time
+        end
       end
     end
-    input_driver.shutdown
 
     emits = input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
@@ -244,12 +244,8 @@ class ForwardOutputTest < Test::Unit::TestCase
       @klass.const_set(:Engine, @engine) # can not run tests concurrently
     end
 
-    def start
-      @instance.start
-    end
-
-    def shutdown
-      @instance.shutdown
+    def run(&block)
+      super(&block)
       @klass.class_eval do
         remove_const(:Engine)
       end
