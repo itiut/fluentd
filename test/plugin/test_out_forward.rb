@@ -17,9 +17,18 @@ class ForwardOutputTest < Test::Unit::TestCase
 
   def create_driver(conf=CONFIG)
     Fluent::Test::OutputTestDriver.new(Fluent::ForwardOutput) do
-      # def write(chunk)
-      #   chunk.read
-      # end
+      attr_reader :responses, :exceptions
+
+      alias :original_send_data :send_data
+
+      def send_data(node, tag, chunk)
+        @responses ||= []
+        @responses << original_send_data(node, tag, chunk)
+      rescue => e
+        @exceptions ||= []
+        @exceptions << e
+        raise e
+      end
     end.configure(conf)
   end
 
@@ -91,7 +100,10 @@ class ForwardOutputTest < Test::Unit::TestCase
   def test_send_data_with_option
     input_driver = WrapperDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
 
-    d = create_driver(CONFIG + %[flush_interval 1s])
+    d = create_driver(CONFIG + %[
+      flush_interval 1s
+      wait_response_timeout 1s
+    ])
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
 
@@ -105,7 +117,6 @@ class ForwardOutputTest < Test::Unit::TestCase
     input_driver.start
     d.run do
       records.each do |record|
-        # TODO: send option
         d.emit record, time
       end
     end
@@ -114,7 +125,10 @@ class ForwardOutputTest < Test::Unit::TestCase
     emits = input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
-    # TODO: test responses
+
+    assert_equal 1, d.instance.responses.length
+    assert d.instance.responses[0].has_key?('ack') # TODO: can assert value?
+    assert_nil d.instance.exceptions
   end
 
   class WrapperDriver

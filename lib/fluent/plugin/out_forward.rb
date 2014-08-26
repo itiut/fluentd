@@ -292,6 +292,7 @@ module Fluent
         end
 
         node.heartbeat(false)
+        return res  # for test
       ensure
         sock.close
       end
