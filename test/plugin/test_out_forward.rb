@@ -133,6 +133,42 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_nil d.instance.exceptions
   end
 
+  def test_disable_node_on_response_timeout
+    input_driver = WrapperDriver.new(WrapperForwardInput, TARGET_HOST, TARGET_PORT)
+
+    d = create_driver(CONFIG + %[
+      flush_interval 1s
+      wait_response_timeout 1s
+    ])
+
+    time = Time.parse("2011-01-02 13:14:15 UTC").to_i
+
+    records = [
+      {"a" => 1},
+      {"a" => 2}
+    ]
+    d.expected_emits_length = records.length
+    # TODO: set when d.run ends
+
+    input_driver.start
+    d.run do
+      records.each do |record|
+        d.emit record, time
+      end
+    end
+    input_driver.shutdown
+
+    emits = input_driver.emits
+    assert_equal ['test', time, records[0]], emits[0]
+    assert_equal ['test', time, records[1]], emits[1]
+
+    node = d.instance.nodes.first
+    p node.available?           # TODO: add assertion
+
+    assert_nil d.instance.responses
+    assert_nil d.instance.exceptions
+  end
+
   class WrapperDriver
     def initialize(wrapper_klass, *args)
       raise ArgumentError unless wrapper_klass.is_a?(Class)
