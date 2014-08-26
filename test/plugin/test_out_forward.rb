@@ -4,31 +4,6 @@ require 'helper'
 class ForwardOutputTest < Test::Unit::TestCase
   def setup
     Fluent::Test.setup
-
-    @dummy_forward_input_thread = Thread.new do
-      serv = TCPServer.new('127.0.0.1', 13999)
-      begin
-        loop do
-          Thread.new(serv.accept) do |sock|
-            dummy_input_forward = DummyForwardInput.new
-            dummy_handler = DummyForwardInput::DummyHandler.new(sock, dummy_input_forward.method(:on_message))
-            loop do
-              raw_data = sock.recv(1024)
-              dummy_handler.on_read(raw_data)
-              break if dummy_handler.chunk_counter == 0
-            end
-          end
-        end
-      ensure
-        serv.close
-      end
-    end
-
-  end
-
-  def teardown
-    @dummy_forward_input_thread.kill
-    @dummy_forward_input_thread.join
   end
 
   CONFIG = %[
@@ -87,6 +62,8 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data
+    dummy_driver = DummyInputDriver.new('127.0.0.1', 13999)
+
     d = create_driver(CONFIG + %[flush_interval 1s])
 
     time = Time.parse("2011-01-02 13:14:15 UTC").to_i
@@ -97,11 +74,13 @@ class ForwardOutputTest < Test::Unit::TestCase
     ]
     d.expected_emits_length = records.length
 
+    dummy_driver.start
     d.run do
       records.each do |record|
         d.emit record, time
       end
     end
+    dummy_driver.shutdown
 
     emits = d.emits
     assert_equal ['test', time, records[0]], emits[0]
@@ -109,31 +88,64 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
 
-  require 'fluent/plugin/in_forward'
-
-  class DummyForwardInput < Fluent::ForwardInput
-    def initialize
-      # do nothing
+  class DummyInputDriver
+    def initialize(host, port)
+      @host = host
+      @port = port
+      @instance = DummyForwardInput.new
     end
 
-    class DummyHandler < Handler
-      attr_reader :chunk_counter # for checking if received data is successfully unpacked
+    def start
+      @thread = Thread.new do
+        server = TCPServer.new(@host, @port)
+        begin
+          loop do
+            # not multiplexing
+            sock = server.accept
+            handler = DummyForwardInput::DummyHandler.new(sock, $log, @instance.method(:on_message))
+            loop do
+              raw_data = sock.recv(1024)
+              handler.on_read(raw_data)
+              break if handler.chunk_counter == 0
+            end
+          end
+        ensure
+          server.close
+        end
+      end
+    end
 
-      def initialize(sock, on_message)
-        @sock = sock
-        # @log =
-        @chunk_counter = 0
-        @on_message = on_message
+    def shutdown
+      @thread.kill
+      @thread.join
+    end
+
+    require 'fluent/plugin/in_forward'
+
+    class DummyForwardInput < Fluent::ForwardInput
+      def initialize
+        # do nothing
       end
 
-      def write(data)
-        @sock.write data
-      rescue => e
-        @sock.close
-      end
+      class DummyHandler < Handler
+        attr_reader :chunk_counter # for checking if received data is successfully unpacked
 
-      def close
-        @sock.close
+        def initialize(sock, log, on_message)
+          @sock = sock
+          @log = log
+          @chunk_counter = 0
+          @on_message = on_message
+        end
+
+        def write(data)
+          @sock.write data
+        rescue => e
+          @sock.close
+        end
+
+        def close
+          @sock.close
+        end
       end
     end
   end
