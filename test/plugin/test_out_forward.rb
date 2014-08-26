@@ -122,7 +122,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       raise ArgumentError unless wrapper_klass.is_a?(Class)
       @instance = wrapper_klass.new(*args)
       @engine = DummyEngineClass.new
-      wrapper_klass.superclass.const_set('Engine', @engine)
+      @instance.class.superclass.const_set(:Engine, @engine) # can not run tests concurrently
     end
 
     def start
@@ -131,6 +131,9 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     def shutdown
       @instance.shutdown
+      @instance.class.superclass.class_eval do
+        remove_const(:Engine)
+      end
     end
 
     def emits
