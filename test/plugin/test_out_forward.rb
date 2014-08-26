@@ -171,7 +171,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal ['test', time, records[1]], emits[1]
 
     node = d.instance.nodes.first
-    p node.available?           # TODO: add assertion
+    assert_equal false, node.available
 
     assert_equal [nil], d.instance.responses
     assert_empty d.instance.exceptions
