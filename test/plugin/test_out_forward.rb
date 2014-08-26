@@ -21,13 +21,18 @@ class ForwardOutputTest < Test::Unit::TestCase
     Fluent::Test::OutputTestDriver.new(Fluent::ForwardOutput) do
       attr_reader :responses, :exceptions
 
+      def initialize
+        super
+        @responses = []
+        @exceptions = []
+      end
+
       alias :original_send_data :send_data
 
       def send_data(node, tag, chunk)
-        @responses ||= []
+        # Original #send_data returns nil when it does not wait for responses or when on response timeout.
         @responses << original_send_data(node, tag, chunk)
       rescue => e
-        @exceptions ||= []
         @exceptions << e
         raise e
       end
@@ -97,6 +102,9 @@ class ForwardOutputTest < Test::Unit::TestCase
     emits = input_driver.emits
     assert_equal ['test', time, records[0]], emits[0]
     assert_equal ['test', time, records[1]], emits[1]
+
+    assert_equal [nil], d.instance.responses
+    assert_empty d.instance.exceptions
   end
 
   def test_send_data_with_option
@@ -130,7 +138,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     assert_equal 1, d.instance.responses.length
     assert d.instance.responses[0].has_key?('ack') # TODO: can assert value?
-    assert_nil d.instance.exceptions
+    assert_empty d.instance.exceptions
   end
 
   def test_disable_node_on_response_timeout
@@ -165,8 +173,8 @@ class ForwardOutputTest < Test::Unit::TestCase
     node = d.instance.nodes.first
     p node.available?           # TODO: add assertion
 
-    assert_nil d.instance.responses
-    assert_nil d.instance.exceptions
+    assert_equal [nil], d.instance.responses
+    assert_empty d.instance.exceptions
   end
 
   def create_input_driver(host, port, do_respond=true)
