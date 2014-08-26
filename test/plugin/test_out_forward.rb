@@ -223,6 +223,7 @@ class ForwardOutputTest < Test::Unit::TestCase
                 handler.on_read(raw_data)
                 break if handler.chunk_counter == 0
               end
+              sleep  # wait for connection to be closed by client
             ensure
               sock.close
             end
