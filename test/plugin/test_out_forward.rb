@@ -134,7 +134,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_disable_node_on_response_timeout
-    input_driver = create_input_driver(TARGET_HOST, TARGET_PORT)
+    input_driver = create_input_driver(TARGET_HOST, TARGET_PORT, false)
 
     d = create_driver(CONFIG + %[
       flush_interval 1s
@@ -169,7 +169,7 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_nil d.instance.exceptions
   end
 
-  def create_input_driver(host, port)
+  def create_input_driver(host, port, do_respond=true)
     require 'fluent/plugin/in_forward'
 
     WrapperDriver.new(Fluent::ForwardInput, host, port) do
@@ -183,10 +183,16 @@ class ForwardOutputTest < Test::Unit::TestCase
           @on_message = on_message
         end
 
-        def write(data)
-          @sock.write data
-        rescue => e
-          @sock.close
+        if do_respond
+          def write(data)
+            @sock.write data
+          rescue => e
+            @sock.close
+          end
+        else
+          def write(data)
+            # do nothing
+          end
         end
 
         def close
