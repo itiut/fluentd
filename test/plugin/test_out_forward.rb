@@ -62,7 +62,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data
-    input_driver = WrapperDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
+    input_driver = create_input_driver('127.0.0.1', 13999)
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -89,7 +89,7 @@ class ForwardOutputTest < Test::Unit::TestCase
   end
 
   def test_send_data_with_option
-    input_driver = WrapperDriver.new(WrapperForwardInput, '127.0.0.1', 13999)
+    input_driver = create_input_driver('127.0.0.1', 13999)
 
     d = create_driver(CONFIG + %[flush_interval 1s])
 
@@ -117,12 +117,72 @@ class ForwardOutputTest < Test::Unit::TestCase
     # TODO: test responses
   end
 
+  def create_input_driver(host, port)
+    require 'fluent/plugin/in_forward'
+
+    WrapperDriver.new(Fluent::ForwardInput, host, port) do
+      handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
+        attr_reader :chunk_counter # for checking if received data is successfully unpacked
+
+        def initialize(sock, log, on_message)
+          @sock = sock
+          @log = log
+          @chunk_counter = 0
+          @on_message = on_message
+        end
+
+        def write(data)
+          @sock.write data
+        rescue => e
+          @sock.close
+        end
+
+        def close
+          @sock.close
+        end
+      }
+
+      def initialize(host, port)
+        @host = host
+        @port = port
+      end
+
+      define_method(:start) do
+        @thread = Thread.new do
+          Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
+            begin
+              handler = handler_class.new(sock, $log, method(:on_message))
+              loop do
+                raw_data = sock.recv(1024)
+                handler.on_read(raw_data)
+                break if handler.chunk_counter == 0
+              end
+            ensure
+              sock.close
+            end
+          end
+        end
+      end
+
+      def shutdown
+        @thread.kill
+        @thread.join
+      end
+    end
+  end
+
+
   class WrapperDriver
-    def initialize(wrapper_klass, *args)
-      raise ArgumentError unless wrapper_klass.is_a?(Class)
-      @instance = wrapper_klass.new(*args)
+    def initialize(klass, *args, &block)
+      raise ArgumentError unless klass.is_a?(Class)
+      @klass = klass
+
       @engine = DummyEngineClass.new
-      @instance.class.superclass.const_set(:Engine, @engine) # can not run tests concurrently
+      @klass.const_set(:Engine, @engine) # can not run tests concurrently
+
+      wrapper_class = Class.new(@klass)
+      wrapper_class.class_eval(&block) if block
+      @instance = wrapper_class.new(*args)
     end
 
     def start
@@ -131,7 +191,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     def shutdown
       @instance.shutdown
-      @instance.class.superclass.class_eval do
+      @klass.class_eval do
         remove_const(:Engine)
       end
     end
@@ -155,58 +215,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
       def emit_stream(tag, es)
         @emit_streams << [tag, es.to_a]
-      end
-    end
-  end
-
-  require 'fluent/plugin/in_forward'
-
-  class WrapperForwardInput < Fluent::ForwardInput
-    def initialize(host, port)
-      @host = host
-      @port = port
-    end
-
-    def start
-      @thread = Thread.new do
-        Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
-          begin
-            handler = WrapperHandler.new(sock, $log, method(:on_message))
-            loop do
-              raw_data = sock.recv(1024)
-              handler.on_read(raw_data)
-              break if handler.chunk_counter == 0
-            end
-          ensure
-            sock.close
-          end
-        end
-      end
-    end
-
-    def shutdown
-      @thread.kill
-      @thread.join
-    end
-
-    class WrapperHandler < Handler
-      attr_reader :chunk_counter # for checking if received data is successfully unpacked
-
-      def initialize(sock, log, on_message)
-        @sock = sock
-        @log = log
-        @chunk_counter = 0
-        @on_message = on_message
-      end
-
-      def write(data)
-        @sock.write data
-      rescue => e
-        @sock.close
-      end
-
-      def close
-        @sock.close
       end
     end
   end
