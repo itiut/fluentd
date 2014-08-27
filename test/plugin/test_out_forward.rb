@@ -215,7 +215,7 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     DummyEngineDriver.new(Fluent::ForwardInput) {
       handler_class = Class.new(Fluent::ForwardInput::Handler) { |klass|
-        attr_reader :chunk_counter # for checking if received data is successfully unpacked
+        attr_reader :chunk_counter # for checking if received data is successfully deserialized
 
         def initialize(sock, log, on_message)
           @sock = sock
@@ -249,6 +249,7 @@ class ForwardOutputTest < Test::Unit::TestCase
               loop do
                 raw_data = sock.recv(1024)
                 handler.on_read(raw_data)
+                # chunk_counter is reset to zero only after all the data have been received and successfully deserialized.
                 break if handler.chunk_counter == 0
               end
               sleep  # wait for connection to be closed by client
@@ -271,7 +272,9 @@ class ForwardOutputTest < Test::Unit::TestCase
       super(klass, &block)
       @engine = DummyEngineClass.new
       @klass = klass
-      @klass.const_set(:Engine, @engine) # can not run tests concurrently
+      # To avoid accessing Fluent::Engine, set Engine as a plugin's class constants (Fluent::SomePlugin::Engine).
+      # But this makes it impossible to run tests concurrently by threading in a process.
+      @klass.const_set(:Engine, @engine)
     end
 
     def run(&block)
