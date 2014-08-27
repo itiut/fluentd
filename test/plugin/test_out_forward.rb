@@ -245,7 +245,7 @@ class ForwardOutputTest < Test::Unit::TestCase
         @thread = Thread.new do
           Socket.tcp_server_loop(@host, @port) do |sock, client_addrinfo|
             begin
-              handler = handler_class.new(sock, $log, method(:on_message))
+              handler = handler_class.new(sock, @log, method(:on_message))
               loop do
                 raw_data = sock.recv(1024)
                 handler.on_read(raw_data)
