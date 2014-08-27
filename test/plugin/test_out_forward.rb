@@ -108,7 +108,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
-    # TODO: check target_input_driver's log
   end
 
   def test_send_to_a_node_not_supporting_responses
@@ -139,7 +138,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     assert_equal [nil], d.instance.responses # not attempt to receive responses, so nil is returned
     assert_empty d.instance.exceptions
-    # TODO: check target_input_driver's log
   end
 
   def test_send_with_opiton_to_a_node_supporting_responses
@@ -172,11 +170,9 @@ class ForwardOutputTest < Test::Unit::TestCase
     assert_equal ['test', time, records[1]], emits[1]
 
     assert_equal 1, d.instance.responses.length
-    assert d.instance.responses[0].has_key?('ack') # TODO: can assert value?
+    assert d.instance.responses[0].has_key?('ack')
     assert_empty d.instance.exceptions
-    # TODO: check target_input_driver's log
   end
-  # TODO: add test cases about responses are not correct?
 
   def test_send_with_opiton_to_a_node_not_supporting_responses
     target_input_driver = create_target_input_driver
@@ -212,7 +208,6 @@ class ForwardOutputTest < Test::Unit::TestCase
 
     assert_equal [nil], d.instance.responses # a nil response when timeout
     assert_empty d.instance.exceptions
-    # TODO: check target_input_driver's log
   end
 
   def create_target_input_driver(do_respond=false, conf=TARGET_CONFIG)
