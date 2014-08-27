@@ -272,7 +272,7 @@ class ForwardOutputTest < Test::Unit::TestCase
       super(klass, &block)
       @engine = DummyEngineClass.new
       @klass = klass
-      # To avoid accessing Fluent::Engine, set Engine as a plugin's class constants (Fluent::SomePlugin::Engine).
+      # To avoid accessing Fluent::Engine, set Engine as a plugin's class constant (Fluent::SomePlugin::Engine).
       # But this makes it impossible to run tests concurrently by threading in a process.
       @klass.const_set(:Engine, @engine)
     end
